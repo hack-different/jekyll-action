@@ -4,6 +4,9 @@ inputs:
   token:
     description: 'The GITHUB_TOKEN secret'
     required: false
+  debug:
+    description: 'If verbose / debug logging should be enabled'
+    required: false
   jekyll_env:
     description: 'The Jekyll environment to build'
     required: false

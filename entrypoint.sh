@@ -119,7 +119,7 @@ bundle install
 echo "::debug::Completed bundle install"
 
 VERBOSE=""
-if [ "${JEKYLL_DEBUG}" = true ]; then
+if [ "${INPUT_DEBUG}" = true ]; then
   # Activating debug for Jekyll
   echo "::debug::Jekyll debug is on"
   VERBOSE="--verbose"
