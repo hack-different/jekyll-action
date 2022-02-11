@@ -1,8 +1,8 @@
-FROM ruby:2.7-alpine
+FROM ruby:3.1-alpine
 
-LABEL version="2.0.1"
-LABEL repository="https://github.com/helaili/jekyll-action"
-LABEL homepage="https://github.com/helaili/jekyll-action"
+LABEL version="2.1"
+LABEL repository="https://github.com/hack-different/jekyll-action"
+LABEL homepage="https://github.com/hack-different/jekyll-action"
 LABEL maintainer="Alain Hélaïli <helaili@github.com>"
 
 RUN apk add --no-cache git build-base
