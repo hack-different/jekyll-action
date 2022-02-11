@@ -18,7 +18,7 @@ if [ -z "${INPUT_TOKEN}" ] && [ "${INPUT_BUILD_ONLY}" != true ]; then
   exit 1
 fi 
 
-JEKYLL_GITHUB_TOKEN=$INPUT_TOKEN
+export JEKYLL_GITHUB_TOKEN=$INPUT_TOKEN
 
 if [ -n "${INPUT_JEKYLL_SRC}" ]; then
   JEKYLL_SRC="${INPUT_JEKYLL_SRC}"
