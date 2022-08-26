@@ -11,6 +11,8 @@ RUN apk add --update tzdata
 # Use curl to send API requests
 RUN apk add --update curl
 
+RUN apk add --update sqlite-dev
+
 # debug
 RUN bundle version
 
