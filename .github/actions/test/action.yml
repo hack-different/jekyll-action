@@ -14,7 +14,7 @@ runs:
   using: "composite"
   steps:  
   - name: Caching
-    uses: actions/cache@v2
+    uses: actions/cache@v3
     with:
       path: ~/.npm
       key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -30,21 +30,25 @@ runs:
       "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pages" | \
       awk -F'"' '/\"html_url\"/ { print $4 }')
       url=$(dirname "${full_url}")
-      echo "::set-output name=url::${url}"
+      echo "url=${url}" >> $GITHUB_OUTPUT
+  - name: Log the URL of the rendered site
+    shell: sh
+    run: echo ${{ steps.rendered-site-url.outputs.url }}
   - name: Cypress run
-    uses: cypress-io/github-action@v2
+    uses: cypress-io/github-action@v5.0.5
     with:
       config: baseUrl=${{ steps.rendered-site-url.outputs.url }}
       working-directory: tests/e2e
       spec: ${{ inputs.spec }}
+      browser: chrome
   - name: Save Cypress Screenshots
-    uses: actions/upload-artifact@v2
+    uses: actions/upload-artifact@v3
     if: failure()
     with:
       name: cypress-screenshots-${{ inputs.suffix  }}
       path: tests/e2e/cypress/screenshots
   - name: Save Cypress Videos
-    uses: actions/upload-artifact@v2
+    uses: actions/upload-artifact@v3
     if: always()
     with:
       name: cypress-videos-${{ inputs.suffix  }}

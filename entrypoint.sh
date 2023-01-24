@@ -3,6 +3,11 @@ set -e
 
 echo "Starting the Jekyll Action"
 
+if [ -n "${INPUT_BUNDLER_VERSION}" ]; then
+  echo "Installing bundler version specified by the user."
+  gem install bundler -v ${INPUT_BUNDLER_VERSION}
+fi 
+
 if [ -n "$INPUT_PRE_BUILD_COMMANDS" ]; then
   echo "Execute pre-build commands specified by the user."
   eval "$INPUT_PRE_BUILD_COMMANDS"
@@ -66,28 +71,47 @@ else
   INPUT_JEKYLL_ENV="production"
 fi  
 
+# Which branch will be used for publishing? 
+# It can be provided, or dectected through API or inferred from the repo name, which is a bit of a legacy behavior.
 if [ -n "${INPUT_TARGET_BRANCH}" ]; then
   remote_branch="${INPUT_TARGET_BRANCH}"
   echo "::debug::target branch is set via input parameter"
-else
+elif [ -n "${INPUT_TOKEN}" ]; then
   response=$(curl -sH "Authorization: token ${INPUT_TOKEN}" \
                   "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages")
   remote_branch=$(echo "$response" | awk -F'"' '/\"branch\"/ { print $4 }')
   if [ -z "${remote_branch}" ]; then
-    echo "::error::Cannot get GitHub Pages source branch via API."
-    echo "::error::${response}"
-    exit 1
+    echo "::warning::Cannot get GitHub Pages source branch via API."
+    echo "::warning::${response}"
   else 
     echo "::debug::using the branch ${remote_branch} set on the repo settings"
   fi
 fi
 
+# In case the remote branch was neither provided nor detected via API.
+if [ -z "${remote_branch}" ]; then
+  case "${GITHUB_REPOSITORY}" in
+    *.github.io) remote_branch="master" ;;
+    *)           remote_branch="gh-pages" ;;
+  esac
+  echo "::debug::resolving to ${remote_branch} with a bit of a guess. Maybe we should default to main instead of master?"
+fi
+
+echo "Remote branch is ${remote_branch}"
+
+
+
 REMOTE_REPO="https://${GITHUB_ACTOR}:${INPUT_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
 echo "::debug::Remote is ${REMOTE_REPO}"
-BUILD_DIR="${GITHUB_WORKSPACE}/../jekyll_build"
+if [ -n "${INPUT_BUILD_DIR}" ]; then
+  BUILD_DIR="${INPUT_BUILD_DIR}"
+else
+  BUILD_DIR="${GITHUB_WORKSPACE}/../jekyll_build"
+fi
+
 echo "::debug::Build dir is ${BUILD_DIR}"
 
-mkdir $BUILD_DIR
+mkdir -p $BUILD_DIR
 cd $BUILD_DIR
 
 if [ -n "${INPUT_TARGET_PATH}" ] && [ "${INPUT_TARGET_PATH}" != '/' ]; then
@@ -103,17 +127,18 @@ if [ "${INPUT_KEEP_HISTORY}" = true ]; then
   LOCAL_BRANCH=$remote_branch
   PUSH_OPTIONS=""
   COMMIT_OPTIONS="--allow-empty"
-else 
-  echo "::debug::Initializing new repo"
-  LOCAL_BRANCH="main"
-  git init -b $LOCAL_BRANCH
-  PUSH_OPTIONS="--force"
-  COMMIT_OPTIONS=""
 fi
 
 echo "::debug::Local branch is ${LOCAL_BRANCH}"
 
 cd "${GITHUB_WORKSPACE}/${GEM_SRC}"
+
+if [ -z "${INPUT_BUNDLER_VERSION}" ] && [ -f "Gemfile.lock" ]; then 
+  echo "Resolving bundler version from Gemfile.lock"
+  VERSION_LINE_NUMBER=$(($(cat Gemfile.lock | grep -n 'BUNDLED WITH' | grep -oE '\d+')+1))
+  BUNDLER_VERSION=$(head -n ${VERSION_LINE_NUMBER} Gemfile.lock  | tail -n 1 | xargs)
+  gem install bundler -v ${BUNDLER_VERSION}
+fi
 
 bundle config path "$PWD/vendor/bundle"
 echo "::debug::Bundle config set succesfully"
@@ -145,17 +170,33 @@ fi
 
 cd ${BUILD_DIR}
 
+# Initializing the repo now to prevent the Jekyll build from overwriting the .git folder 
+if [ "${INPUT_KEEP_HISTORY}" != true ]; then
+  echo "::debug::Initializing new repo"
+  LOCAL_BRANCH="main"
+  git init -b $LOCAL_BRANCH
+  PUSH_OPTIONS="--force"
+  COMMIT_OPTIONS=""
+fi
+
 # No need to have GitHub Pages to run Jekyll
 touch .nojekyll
 
 echo "Publishing to ${GITHUB_REPOSITORY} on branch ${remote_branch}"
 
-git config user.name "${GITHUB_ACTOR}" && \
-git config user.email "${GITHUB_ACTOR}@users.noreply.github.com" && \
+if [ -n "$INPUT_COMMIT_AUTHOR" ]; then
+  git config user.name "${INPUT_COMMIT_AUTHOR}" && \
+  git config user.email "${INPUT_COMMIT_AUTHOR}@users.noreply.github.com" && \
+  echo "::debug::commit author is set via input parameter"
+else
+  git config user.name "${GITHUB_ACTOR}" && \
+  git config user.email "${GITHUB_ACTOR}@users.noreply.github.com" && \
+  echo "::debug::commit author is set to the default github actor"
+fi
 git add . && \
 git commit $COMMIT_OPTIONS -m "jekyll build from Action ${GITHUB_SHA}" && \
 git push $PUSH_OPTIONS $REMOTE_REPO $LOCAL_BRANCH:$remote_branch && \
-echo "::set-output name=SHA::$( git rev-parse ${LOCAL_BRANCH} )"
+echo "SHA=$( git rev-parse ${LOCAL_BRANCH} )" >> $GITHUB_OUTPUT
 rm -fr .git && \
 cd .. 
 

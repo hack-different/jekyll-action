@@ -44,6 +44,15 @@ asciidoctor:
 
 Note that we also renamed `index.html` to `index.adoc` and modified this file accordingly in order to leverage AsciiDoc.
 
+### Create your publishing target
+The historical default behavior of GitHub Pages is to deploy the content of a `gh-pages` branch. If you want to rely on this and you don't have such a branch yet, you can create it with the following instructions 
+
+```
+git switch --orphan gh-pages
+git commit --allow-empty -m "Initial commit on orphan branch"
+git push -u origin gh-pages
+```
+
 ### Use the action
 Use the `helaili/jekyll-action@master` action in your workflow file. It needs access to the out-of-the-box `GITHUB_TOKEN` secret. The directory where the Jekyll site lives will be detected (based on the location of `_config.yml`) but you can also explicitly set this directory by setting the `jekyll_src` parameter (`sample_site` for us). The `SRC` environment variable is also supported for backward compatibilty but it is deprecated.
 The action will search for Gemfile location. If your want to specify it explicitly (e.g. if you have multiple Gemfiles per project), you should update `gem_src` input parameter accordingly.
@@ -122,6 +131,9 @@ The relative path where the site gets pushed to
 ### build_only
 When set to `true`, the Jekyll site will be built but not published
 
+### build_dir
+This is the directory which you want to build your site in
+
 ### pre_build_commands
 Commands to run prior to build and deploy. Useful for ensuring build dependencies are up to date or installing new dependencies. For example, use `apk --update add imagemagick` to install ImageMagick.
 
@@ -131,6 +143,12 @@ When set to `true`, previous version of the site will be restored before the Jek
 ```yml
 keep_files: [.git, hello.html]
 ```
+
+### bundler_version
+When set override the default bundler version provided. If not given will attempt to resolve bundler version from `Gemfile.lock` if one exists.
+
+### commit_author
+When set override the default author of the commits to be performed. The default is to use the `GITHUB_ACTOR` environment variable, which is usually the owner of the `GITHUB_TOKEN` secret. The value can for example be set to `github-actions[bot]`. The corresponding email address is automatically set to `[commit_author]@users.noreply.github.com`.
 
 ## Use case: multi version publishing 
 
@@ -193,3 +211,5 @@ If you're using a Custom Domain for your GitHub Pages site, you will need to ens
 If your GitHub Pages site is run off the `main` (or `master`) branch, you can modify the Custom Domain setting in the Repository Settings to automatically generate and commit the `CNAME` file.
 
 If your GitHub Pages site is run off an _alternate_ branch, however, you will need to manually create and commit the `CNAME` file with your custom domain as its contents, otherwise the file will be committed to the deployment branch and _overwritten the next time the action is run_.
+
+Note that you can [force the inclusion of your CNAME file](https://github.com/criptowiki/criptowiki/issues/15#issuecomment-886890153)
